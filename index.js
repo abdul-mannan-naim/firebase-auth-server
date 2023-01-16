@@ -37,20 +37,28 @@ async function run() {
     const productsCollection = await client.db('eShop').collection('products')
     const ordersCollection = await client.db('eShop').collection('orders')
     const usersCollection = await client.db('eShop').collection('users')
+    const doctorsCollection = await client.db('eShop').collection('doctors')
+    const adminsCollection = await client.db('eShop').collection('admins')
 
-    app.post('/product', async (req, res) => {
+    app.post('/product', verifyJWT, async (req, res) => {
       const query = req.body;
       const result = await productsCollection.insertOne(query)
       res.send(result)
     })
-    app.get('/getProduct', async (req, res) => {
+    app.get('/getProduct' ,verifyJWT, async (req, res) => {
       const query = {};
       const result = await productsCollection.find(query).toArray()
       res.send(result)
 
     })
+    app.get('/productName',   async (req, res) => {
+      const query = {};
+      const result = await productsCollection.find(query).project({name:1}).toArray()
+      res.send(result)
 
-    app.put('/update/:id', async (req, res) => {
+    })
+
+    app.put('/update/:id', verifyJWT, async (req, res) => {
       const id = req.params;
       const query = req.body;
       const filter = { _id: ObjectId(id) }
@@ -61,7 +69,7 @@ async function run() {
       const result = await productsCollection.updateOne(filter, doc, options)
       res.send(result)
     })
-    app.delete('/delete/:id', async (req, res) => {
+    app.delete('/delete/:id', verifyJWT, async (req, res) => {
       const id = req.params;
       const filter = { _id: ObjectId(id) }
       const result = await productsCollection.deleteOne(filter);
@@ -84,13 +92,13 @@ async function run() {
 
     // })
 
-    app.post('/order', async (req, res) => {
+    app.post('/order', verifyJWT, async (req, res) => {
       const query = req.body;
       const result = await ordersCollection.insertOne(query)
       res.send(result)
     })
     // -------------------- 
-    
+
     app.get('/users', verifyJWT, async (req, res) => {
       const user = await usersCollection.find().toArray()
       res.send(user)
@@ -112,13 +120,14 @@ async function run() {
       }
     })
 
-    app.get('/admin/:email',async(req,res)=>{
-      const email =req.params.email;
-      const query =await usersCollection.findOne({email:email})
-      const isAdmin =query.role === "admin"
-      res.send({admin:isAdmin})
+    app.get('/admin/:email', verifyJWT, async (req, res) => {
+      const email = req.params.email;
+      const query = await usersCollection.findOne({ email: email })
+      const isAdmin = query.role === "admin"
+      res.send({ admin: isAdmin })
     })
 
+    // etar jonno verifyJWT kora jabena, tahole token undefined hoye jabe
     app.put('/user/:email', async (req, res) => {
       const email = req.params.email;
       const user = req.body;
@@ -134,23 +143,49 @@ async function run() {
     })
     app.put('/user/admin/:email', verifyJWT, async (req, res) => {
       const email = req.params.email;
+      const admin =req.body;
       const requester = req.decoded.email;
       const requesterAccount = await usersCollection.findOne({ email: requester })
       if (requesterAccount.role === "admin") {
         const filter = { email: email }
+        const options ={upsert:true}
+        const updateDoc ={
+          $set:admin
+        }
         const doc = {
           $set: { role: "admin" },
         }
-        const result = await usersCollection.updateOne(filter, doc)
+        const userResult = await usersCollection.updateOne(filter, doc ,options)
+        const adminResult = await adminsCollection.updateOne(filter, updateDoc ,options)
 
-        res.send(result)
+        res.send({userResult,adminResult})
       }
       else {
         res.status(403).send({ message: " UnAuthorized to make admin " })
       }
 
     })
+    // ---------------------------------
+    app.put('/doctors/:email',verifyJWT, async (req, res) => {
+      const email = req.params.email;
+      const doctor = req.body;
+      const requester = req.decoded.email;
+      const requesterAccount = await usersCollection.findOne({ email: requester })
+      if (requesterAccount.role === "admin") {
+        const filter = { email: email }
+        const option = { upsert: true }
+        const doc = {
+          $set: { profession: "doctor" }
+        }
+        const updateDoc = {
+          $set: doctor
+        }
 
+        const userResult = await usersCollection.updateOne(filter, doc)
+        const doctorResult = await doctorsCollection.updateOne(filter, updateDoc, option)
+        res.send({userResult,doctorResult})
+      }
+    })
 
 
   }
