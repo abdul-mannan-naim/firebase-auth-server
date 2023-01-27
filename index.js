@@ -3,13 +3,14 @@ const cors = require('cors')
 const app = express()
 require('dotenv').config();
 const jwt = require('jsonwebtoken');
-const port = 5000
+const port = process.env.PORT || 5000;
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 
 app.use(cors())
 app.use(express.json())
 
-const uri = "mongodb+srv://eShop:eShop@cluster0.fgwma2r.mongodb.net/?retryWrites=true&w=majority";
+const uri = process.env.MONGODB_URI
+// const uri = "mongodb+srv://eShop:eShop@cluster0.fgwma2r.mongodb.net/?retryWrites=true&w=majority"
 const client = new MongoClient(uri, { useNewUrlParser: true, useUnifiedTopology: true, serverApi: ServerApiVersion.v1 });
 
 
@@ -45,29 +46,141 @@ async function run() {
       const result = await productsCollection.insertOne(query)
       res.send(result)
     })
-    app.get('/getProduct' ,verifyJWT, async (req, res) => {
+    app.get('/getProduct', verifyJWT, async (req, res) => {
       const query = {};
       const result = await productsCollection.find(query).toArray()
       res.send(result)
 
     })
-    app.get('/productName',   async (req, res) => {
+    app.get('/productName', async (req, res) => {
       const query = {};
-      const result = await productsCollection.find(query).project({name:1}).toArray()
+      const result = await productsCollection.find(query).project({ name: 1 }).toArray()
+      res.send(result)
+
+    })
+    app.get('/getproductbysearch', async (req, res) => {
+      const query = {};
+      const result = await productsCollection.find(query).toArray()
       res.send(result)
 
     })
 
+    // --------------------------------rating destacture-----------------------------------------------
+    app.get('/getProductBySearch', async (req, res) => {
+      const query = {};
+      const result = await productsCollection.find(query).project({ rating: 1 }).toArray()
+      res.send(result)
+
+    })
+
+    // -------------------------------rating-----------------
+
+    app.put('/rating/:id', verifyJWT, async (req, res) => {
+      const id = req.params;
+      const requester = req.decoded.email;
+      const { ratin } = req.body;
+      const user = {
+        rating: ratin,
+        rater: requester,
+      }
+      const filter = { _id: ObjectId(id) }
+      // ------------------------destructure array of a object--------------------------
+      //  const raterRating =await productsCollection.findOne(filter)
+      // const {rating:[{rater}]} =raterRating;
+      // console.log(rater)
+      // if(rater){
+      //   return res.status(403).send({ success:false, message: " You already rated " })
+      // }
+      // --------------------------------------------------------------------------------
+      const specificProduct = await productsCollection.findOne(filter)
+      const { rating } = specificProduct
+      // console.log(rating); 
+      // rating.forEach((admin)=> {
+      //   console.log(` ${admin.rating} ${admin.rater} `)
+      // }) 
+
+
+      const specificRater = await rating.filter(item => item.rater === requester).length  
+      const options = { upsert: true };  
+      
+      if(specificRater < 1 ){
+        const doc = {
+          $push: {
+            rating: {
+              $each: [user],
+              $position: 0
+            }
+          }
+        }
+        const result = await productsCollection.updateOne(filter, doc, options)
+        return res.send({ success: true, result })
+      }
+      
+      else if (specificRater > 0 ) {
+        return res.send({ success: false, message: "You Already Rated" })
+      } 
+    })
+    app.put('/rating/:id', verifyJWT, async (req, res) => {
+      const id = req.params;
+      const requester = req.decoded.email;
+      const { ratin } = req.body;
+      const user = {
+        rating: ratin,
+        rater: requester,
+      }
+      const filter = { _id: ObjectId(id) }
+      // ------------------------destructure array of a object--------------------------
+      //  const raterRating =await productsCollection.findOne(filter)
+      // const {rating:[{rater}]} =raterRating;
+      // console.log(rater)
+      // if(rater){
+      //   return res.status(403).send({ success:false, message: " You already rated " })
+      // }
+      // --------------------------------------------------------------------------------
+      const specificProduct = await productsCollection.findOne(filter)
+      const { rating } = specificProduct
+      // console.log(rating); 
+      // rating.forEach((admin)=> {
+      //   console.log(` ${admin.rating} ${admin.rater} `)
+      // }) 
+
+
+      const specificRater = await rating.filter(item => item.rater === requester).length  
+      const options = { upsert: true };  
+      
+      if(specificRater < 1 ){
+        const doc = {
+          $push: {
+            rating: {
+              $each: [user],
+              $position: 0
+            }
+          }
+        }
+        const result = await productsCollection.updateOne(filter, doc, options)
+        return res.send({ success: true, result })
+      }
+      
+      else if (specificRater > 0 ) {
+        return res.send({ success: false, message: "You Already Rated" })
+      } 
+    })
+
+    //  --------------------------------------------------------------------------------
+
     app.put('/update/:id', verifyJWT, async (req, res) => {
       const id = req.params;
       const query = req.body;
-      const filter = { _id: ObjectId(id) }
-      const options = { upsert: true };
-      const doc = {
-        $set: query
+      const requester = req.decoded.email;
+      if (requester) {
+        const filter = { _id: ObjectId(id) }
+        const options = { upsert: true };
+        const doc = {
+          $set: query
+        }
+        const result = await productsCollection.updateOne(filter, doc, options)
+        res.send(result)
       }
-      const result = await productsCollection.updateOne(filter, doc, options)
-      res.send(result)
     })
     app.delete('/delete/:id', verifyJWT, async (req, res) => {
       const id = req.params;
@@ -143,22 +256,22 @@ async function run() {
     })
     app.put('/user/admin/:email', verifyJWT, async (req, res) => {
       const email = req.params.email;
-      const admin =req.body;
+      const admin = req.body;
       const requester = req.decoded.email;
       const requesterAccount = await usersCollection.findOne({ email: requester })
       if (requesterAccount.role === "admin") {
         const filter = { email: email }
-        const options ={upsert:true}
-        const updateDoc ={
-          $set:admin
+        const options = { upsert: true }
+        const updateDoc = {
+          $set: admin
         }
         const doc = {
           $set: { role: "admin" },
         }
-        const userResult = await usersCollection.updateOne(filter, doc ,options)
-        const adminResult = await adminsCollection.updateOne(filter, updateDoc ,options)
+        const userResult = await usersCollection.updateOne(filter, doc, options)
+        const adminResult = await adminsCollection.updateOne(filter, updateDoc, options)
 
-        res.send({userResult,adminResult})
+        res.send({ userResult, adminResult })
       }
       else {
         res.status(403).send({ message: " UnAuthorized to make admin " })
@@ -166,7 +279,7 @@ async function run() {
 
     })
     // ---------------------------------
-    app.put('/doctors/:email',verifyJWT, async (req, res) => {
+    app.put('/doctors/:email', verifyJWT, async (req, res) => {
       const email = req.params.email;
       const doctor = req.body;
       const requester = req.decoded.email;
@@ -183,8 +296,21 @@ async function run() {
 
         const userResult = await usersCollection.updateOne(filter, doc)
         const doctorResult = await doctorsCollection.updateOne(filter, updateDoc, option)
-        res.send({userResult,doctorResult})
+        res.send({ userResult, doctorResult })
       }
+    })
+
+    // ------------------------------------------------
+    // -------------------useParams--------------------
+    // -------------------(practice)------------------- 
+    // ------------------------------------------------// 
+
+
+    app.get('/booking/:id', async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: ObjectId(id) }
+      const result = await usersCollection.findOne(query)
+      res.send(result)
     })
 
 
