@@ -120,52 +120,18 @@ async function run() {
         return res.send({ success: false, message: "You Already Rated" })
       } 
     })
-    app.put('/rating/:id', verifyJWT, async (req, res) => {
+
+    // ------------------------------------------------------------------------
+    app.get('/rating/:id', verifyJWT, async (req, res) => {
       const id = req.params;
-      const requester = req.decoded.email;
-      const { ratin } = req.body;
-      const user = {
-        rating: ratin,
-        rater: requester,
-      }
-      const filter = { _id: ObjectId(id) }
-      // ------------------------destructure array of a object--------------------------
-      //  const raterRating =await productsCollection.findOne(filter)
-      // const {rating:[{rater}]} =raterRating;
-      // console.log(rater)
-      // if(rater){
-      //   return res.status(403).send({ success:false, message: " You already rated " })
-      // }
-      // --------------------------------------------------------------------------------
+      const requester = req.decoded.email;  
+      const filter = { _id: ObjectId(id) } 
       const specificProduct = await productsCollection.findOne(filter)
-      const { rating } = specificProduct
-      // console.log(rating); 
-      // rating.forEach((admin)=> {
-      //   console.log(` ${admin.rating} ${admin.rater} `)
-      // }) 
-
-
-      const specificRater = await rating.filter(item => item.rater === requester).length  
-      const options = { upsert: true };  
-      
-      if(specificRater < 1 ){
-        const doc = {
-          $push: {
-            rating: {
-              $each: [user],
-              $position: 0
-            }
-          }
-        }
-        const result = await productsCollection.updateOne(filter, doc, options)
-        return res.send({ success: true, result })
-      }
-      
-      else if (specificRater > 0 ) {
-        return res.send({ success: false, message: "You Already Rated" })
-      } 
+      const { rating } = specificProduct 
+      const specificRater = await rating.find(item => item.rater === requester)
+      res.send( specificRater)  
     })
-
+ 
     //  --------------------------------------------------------------------------------
 
     app.put('/update/:id', verifyJWT, async (req, res) => {
