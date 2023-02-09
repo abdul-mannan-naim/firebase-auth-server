@@ -10,8 +10,7 @@ const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 app.use(cors())
 app.use(express.json())
 
-const uri = process.env.MONGODB_URI
-// const uri = "mongodb+srv://eShop:eShop@cluster0.fgwma2r.mongodb.net/?retryWrites=true&w=majority"
+const uri = process.env.MONGODB_URI 
 const client = new MongoClient(uri, { useNewUrlParser: true, useUnifiedTopology: true, serverApi: ServerApiVersion.v1 });
 
 
@@ -48,7 +47,7 @@ async function run() {
     // -------------only admin control this -------------------------------- 
     // ---------Our product post get update and delete way ----------------- 
     // --------------------------------------------------------------------- 
-    app.post('/product', async (req, res) => {
+    app.post('/product',verifyJWT, async (req, res) => {
       const query = req.body;
       const result = await productsCollection.insertOne(query)
       res.send(result)
@@ -89,20 +88,20 @@ async function run() {
       res.send(result)
     })
     // -------------------------comment post---------------------------------
-    app.post('/comment', async (req, res) => {
+    app.post('/comment',verifyJWT, async (req, res) => {
       const query = req.body;
       const result = await commentsCollection.insertOne(query)
       res.send(result)
     })
     // ---------------------------get comment for specific product----------- 
-    app.get('/comment/:id', async (req, res) => {
+    app.get('/comment/:id',verifyJWT, async (req, res) => {
       const id = req.params.id;
       const filter = { productId: id }
       const result = await commentsCollection.find(filter).toArray()
       res.send(result)
     })
     // -----------------------delete comment--------------------------------- 
-    app.delete('/comment/:id', async (req, res) => {
+    app.delete('/comment/:id',verifyJWT, async (req, res) => {
       const id = req.params;
       const filter = { _id: ObjectId(id) }
       const result = await commentsCollection.deleteOne(filter)
@@ -185,7 +184,7 @@ async function run() {
     })
 
     // --------------customer wants to payment------
-    app.post('/create-payment-intent', async (req, res) => {
+    app.post('/create-payment-intent',verifyJWT, async (req, res) => {
       const service = req.body;
       const price = service.price;
       const amount = price * 100;
@@ -215,7 +214,7 @@ async function run() {
     // -------------------useParams--------------------
     // -------------------(practice)------------------- 
     // ------------------------------------------------//  
-    app.get('/myOrder/:id', async (req, res) => {
+    app.get('/myOrder/:id',verifyJWT, async (req, res) => {
       const id = req.params.id;
       const query = { _id: ObjectId(id) }
       const result = await ordersCollection.findOne(query)
@@ -223,7 +222,7 @@ async function run() {
     })
 
     // ------------------------update a order after payment-----------------------------
-    app.patch('/order/:id', async (req, res) => {
+    app.patch('/order/:id',verifyJWT, async (req, res) => {
       const id = req.params.id;
       const payment=req.body;
       const filter ={_id:ObjectId(id)}
@@ -260,7 +259,7 @@ async function run() {
         $set: user,
       }
       const result = await usersCollection.updateOne(filter, doc, options)
-      const token = jwt.sign({ email: email }, process.env.ACCESS_TOKEN_SECRET, { expiresIn: '1h' })
+      const token = jwt.sign({ email: email }, process.env.ACCESS_TOKEN_SECRET ,{expiresIn:"1h"} )
       res.send({ result, token })
     })
     // -------------------make a user as a admin------------------------
